@@ -30,7 +30,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "${APP_PORT:-8090}:80"
+      - "${APP_PORT:-8081}:80"
 
 volumes:
   screener_data:
