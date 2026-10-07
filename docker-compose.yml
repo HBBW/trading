@@ -1,0 +1,36 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    image: idx-swing-backend:latest
+    restart: unless-stopped
+    environment:
+      TRADING_DB_PATH: /data/screener.duckdb
+      TRADING_TIMEZONE: Asia/Jakarta
+    volumes:
+      - screener_data:/data
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+    image: idx-swing-frontend:latest
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${APP_PORT:-8080}:80"
+
+volumes:
+  screener_data:
