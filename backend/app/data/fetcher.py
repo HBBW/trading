@@ -40,6 +40,8 @@ class YFinanceProvider:
         self.suffix = suffix if suffix is not None else settings.ticker_suffix
 
     def _to_yahoo(self, symbol: str) -> str:
+        if symbol.startswith("^"):
+            return symbol
         return f"{symbol}{self.suffix}"
 
     def fetch_daily(

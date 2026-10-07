@@ -152,11 +152,24 @@ const OVERNIGHT_GROUPS: Group[] = [
   },
 ];
 
+const QUALITY_GROUP: Group = {
+  title: "Kualitas tren & momentum",
+  items: [
+    { key: "adx_strong", label: "ADX ≥ 20 (tren tidak sideways)" },
+    { key: "rs_positive", label: "Outperform IHSG (RS ≥ 0)" },
+    { key: "macd_bull", label: "MACD histogram positif" },
+    { key: "stoch_bull", label: "Stochastic bullish (%K ≥ %D)" },
+    { key: "bb_above_mid", label: "Harga di atas mid Bollinger" },
+    { key: "near_52w_high", label: "Dalam 5% dari high 52 minggu" },
+    { key: "obv_rising", label: "OBV naik 10 bar" },
+  ],
+};
+
 const GROUPS: Record<ChecklistVariant, Group[]> = {
-  swing: SWING_GROUPS,
-  scalp: SCALP_GROUPS,
-  day: DAY_GROUPS,
-  overnight: OVERNIGHT_GROUPS,
+  swing: [...SWING_GROUPS, QUALITY_GROUP],
+  scalp: [...SCALP_GROUPS, QUALITY_GROUP],
+  day: [...DAY_GROUPS, QUALITY_GROUP],
+  overnight: [...OVERNIGHT_GROUPS, QUALITY_GROUP],
 };
 
 const TITLES: Record<ChecklistVariant, string> = {

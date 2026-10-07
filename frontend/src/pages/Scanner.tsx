@@ -79,6 +79,10 @@ function compare(a: ScanResult, b: ScanResult, key: SortKey, category: Category)
       return (a.close ?? 0) - (b.close ?? 0);
     case "rsi":
       return (a.rsi ?? 0) - (b.rsi ?? 0);
+    case "adx":
+      return (a.adx14 ?? -1) - (b.adx14 ?? -1);
+    case "rs":
+      return (a.rs ?? -1) - (b.rs ?? -1);
     case "vol":
       return (volRatio(a.volume, a.vol_avg20) ?? 0) - (volRatio(b.volume, b.vol_avg20) ?? 0);
     case "entry":

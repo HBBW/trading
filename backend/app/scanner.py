@@ -51,6 +51,12 @@ def run_scan(
                 message=str(exc)[:500],
             )
             raise
+        try:
+            update_price_cache([settings.benchmark_symbol])
+        except Exception:  # noqa: BLE001 - benchmark is best-effort
+            log.warning("benchmark fetch failed: %s", settings.benchmark_symbol)
+
+    benchmark = store.load_ohlcv(settings.benchmark_symbol, settings.history_days)
 
     results: list[dict] = []
     scanned = 0
@@ -59,7 +65,7 @@ def run_scan(
             hist = store.load_ohlcv(sym, settings.history_days)
             if hist.empty or len(hist) < 210:
                 continue
-            frame = add_indicators(hist, settings)
+            frame = add_indicators(hist, settings, benchmark)
             ev = evaluate(frame, settings)
             if ev is None or not ev["liquid"]:
                 continue
@@ -118,6 +124,20 @@ def run_scan(
                     "overnight_tp2": overnight_plan.get("tp2"),
                     "overnight_risk_reward": overnight_plan.get("risk_reward"),
                     "overnight_breakdown": json.dumps(overnight["breakdown"]) if overnight else None,
+                    "adx14": ev.get("adx14"),
+                    "di_plus14": ev.get("di_plus14"),
+                    "di_minus14": ev.get("di_minus14"),
+                    "macd": ev.get("macd"),
+                    "macd_signal": ev.get("macd_signal"),
+                    "macd_hist": ev.get("macd_hist"),
+                    "bb_bandwidth": ev.get("bb_bandwidth"),
+                    "bb_pctb": ev.get("bb_pctb"),
+                    "stoch_k": ev.get("stoch_k"),
+                    "stoch_d": ev.get("stoch_d"),
+                    "dist_52w_high": ev.get("dist_52w_high"),
+                    "atr_pct": ev.get("atr_pct"),
+                    "rs": ev.get("rs"),
+                    "obv_slope": ev.get("obv_slope"),
                 }
             )
         except Exception:  # noqa: BLE001

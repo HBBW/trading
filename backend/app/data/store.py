@@ -90,6 +90,20 @@ CREATE TABLE IF NOT EXISTS scan_results (
     overnight_tp2 DOUBLE,
     overnight_risk_reward DOUBLE,
     overnight_breakdown VARCHAR,
+    adx14 DOUBLE,
+    di_plus14 DOUBLE,
+    di_minus14 DOUBLE,
+    macd DOUBLE,
+    macd_signal DOUBLE,
+    macd_hist DOUBLE,
+    bb_bandwidth DOUBLE,
+    bb_pctb DOUBLE,
+    stoch_k DOUBLE,
+    stoch_d DOUBLE,
+    dist_52w_high DOUBLE,
+    atr_pct DOUBLE,
+    rs DOUBLE,
+    obv_slope DOUBLE,
     created_at TIMESTAMP DEFAULT now(),
     PRIMARY KEY (run_id, symbol)
 );
@@ -137,6 +151,20 @@ def init_db() -> None:
             "overnight_tp2 DOUBLE",
             "overnight_risk_reward DOUBLE",
             "overnight_breakdown VARCHAR",
+            "adx14 DOUBLE",
+            "di_plus14 DOUBLE",
+            "di_minus14 DOUBLE",
+            "macd DOUBLE",
+            "macd_signal DOUBLE",
+            "macd_hist DOUBLE",
+            "bb_bandwidth DOUBLE",
+            "bb_pctb DOUBLE",
+            "stoch_k DOUBLE",
+            "stoch_d DOUBLE",
+            "dist_52w_high DOUBLE",
+            "atr_pct DOUBLE",
+            "rs DOUBLE",
+            "obv_slope DOUBLE",
         ]:
             conn.execute(f"ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS {col}")
 
@@ -279,6 +307,9 @@ def save_scan_results(rows: list[dict]) -> int:
         "day_tp2", "day_risk_reward", "day_breakdown",
         "overnight_score", "overnight_signal", "overnight_entry", "overnight_stop_loss",
         "overnight_tp1", "overnight_tp2", "overnight_risk_reward", "overnight_breakdown",
+        "adx14", "di_plus14", "di_minus14", "macd", "macd_signal", "macd_hist",
+        "bb_bandwidth", "bb_pctb", "stoch_k", "stoch_d", "dist_52w_high", "atr_pct",
+        "rs", "obv_slope",
     ]
     frame = frame.reindex(columns=cols)
     with _write_lock, get_conn() as conn:

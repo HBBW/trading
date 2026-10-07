@@ -75,7 +75,15 @@ def ticker_detail(symbol: str, days: int = 180, refresh: bool = False) -> Ticker
     if hist.empty:
         return TickerResponse(symbol=sym, name=name, sector=sector, error="no data available")
 
-    frame = add_indicators(hist, settings)
+    benchmark = store.load_ohlcv(settings.benchmark_symbol, settings.history_days)
+    if benchmark.empty:
+        try:
+            update_price_cache([settings.benchmark_symbol])
+            benchmark = store.load_ohlcv(settings.benchmark_symbol, settings.history_days)
+        except Exception:  # noqa: BLE001 - benchmark is best-effort
+            pass
+
+    frame = add_indicators(hist, settings, benchmark)
     ev = evaluate(frame, settings)
     scalp = evaluate_scalp(frame, settings)
     day = evaluate_daytrade(frame, settings)
@@ -101,6 +109,22 @@ def ticker_detail(symbol: str, days: int = 180, refresh: bool = False) -> Ticker
         "vol_avg20": _num(last.get("vol_avg20")),
         "atr14": _num(last.get(f"atr{settings.atr_period}")),
         "value_avg20": _num(last.get("value_avg20")),
+        "adx14": _num(last.get("adx14")),
+        "di_plus14": _num(last.get("di_plus14")),
+        "di_minus14": _num(last.get("di_minus14")),
+        "macd": _num(last.get("macd")),
+        "macd_signal": _num(last.get("macd_signal")),
+        "macd_hist": _num(last.get("macd_hist")),
+        "bb_upper": _num(last.get("bb_upper")),
+        "bb_lower": _num(last.get("bb_lower")),
+        "bb_bandwidth": _num(last.get("bb_bandwidth")),
+        "bb_pctb": _num(last.get("bb_pctb")),
+        "stoch_k": _num(last.get("stoch_k")),
+        "stoch_d": _num(last.get("stoch_d")),
+        "dist_52w_high": _num(last.get("dist_52w_high")),
+        "atr_pct": _num(last.get("atr_pct")),
+        "rs": _num(last.get("rs")),
+        "obv_slope": _num(last.get("obv_slope")),
     }
     series: dict[str, list[SeriesPoint]] = {}
     for col, key in [
@@ -108,6 +132,14 @@ def ticker_detail(symbol: str, days: int = 180, refresh: bool = False) -> Ticker
         ("ema50", "ema50"),
         ("sma200", "sma200"),
         ("rsi14", "rsi14"),
+        ("bb_upper", "bb_upper"),
+        ("bb_lower", "bb_lower"),
+        ("macd", "macd"),
+        ("macd_signal", "macd_signal"),
+        ("macd_hist", "macd_hist"),
+        ("stoch_k", "stoch_k"),
+        ("stoch_d", "stoch_d"),
+        ("adx14", "adx14"),
     ]:
         if col not in tail.columns:
             continue

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.indicators import atr, ema, rsi, sma
+from app.indicators import add_indicators, adx, atr, bollinger, ema, macd, obv, rsi, sma, stochastic
 
 CANONICAL_CLOSES = [
     44.34, 44.09, 44.15, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84, 46.08,
@@ -50,3 +50,54 @@ def test_atr_constant_range():
     assert np.isnan(out.iloc[13])
     assert out.iloc[14] == pytest.approx(0.2)
     assert out.iloc[-1] == pytest.approx(0.2)
+
+
+def _trend_frame(n: int = 120, step: float = 1.0) -> pd.DataFrame:
+    close = 100 + np.arange(n) * step
+    return pd.DataFrame(
+        {
+            "date": pd.bdate_range("2024-01-01", periods=n),
+            "open": close,
+            "high": close + 0.5,
+            "low": close - 0.5,
+            "close": close,
+            "volume": np.full(n, 1_000_000.0),
+        }
+    )
+
+
+def test_adx_uptrend_has_positive_di():
+    out = adx(_trend_frame(), 14)
+    assert out["adx14"].iloc[-1] > 20
+    assert out["di_plus14"].iloc[-1] > out["di_minus14"].iloc[-1]
+
+
+def test_macd_positive_on_uptrend():
+    out = macd(_trend_frame()["close"])
+    assert out["macd"].iloc[-1] > 0
+    assert out["macd_hist"].iloc[-1] > 0
+
+
+def test_bollinger_band_ordering():
+    out = bollinger(_trend_frame()["close"])
+    assert out["bb_upper"].iloc[-1] > out["bb_mid"].iloc[-1] > out["bb_lower"].iloc[-1]
+
+
+def test_stochastic_high_on_uptrend():
+    out = stochastic(_trend_frame(), 14, 3)
+    assert out["stoch_k"].iloc[-1] > 90
+
+
+def test_obv_rising_with_price():
+    out = obv(_trend_frame(), 10)
+    assert out["obv_slope"].iloc[-1] > 0
+
+
+def test_add_indicators_relative_strength_vs_benchmark():
+    stock = _trend_frame(n=120, step=2.0)
+    bench = _trend_frame(n=120, step=1.0)[["date", "close"]]
+    out = add_indicators(stock, benchmark=bench)
+    assert out["rs"].iloc[-1] > 0
+    assert {"adx14", "macd_hist", "bb_pctb", "stoch_k", "dist_52w_high", "atr_pct", "rs"} <= set(
+        out.columns
+    )

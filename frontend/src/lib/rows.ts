@@ -7,6 +7,8 @@ export type SortKey =
   | "score"
   | "close"
   | "rsi"
+  | "adx"
+  | "rs"
   | "vol"
   | "entry"
   | "cl"

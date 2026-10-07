@@ -61,6 +61,26 @@ class Settings(BaseSettings):
     candidate_score: float = 60.0
     buy_score: float = 75.0
 
+    # indicators
+    benchmark_symbol: str = "^JKSE"
+    rs_lookback: int = 63
+    adx_period: int = 14
+    macd_fast: int = 12
+    macd_slow: int = 26
+    macd_signal: int = 9
+    bb_window: int = 20
+    bb_std: float = 2.0
+    stoch_k: int = 14
+    stoch_d: int = 3
+    obv_slope_window: int = 10
+    high_52w_window: int = 252
+
+    # quality layer (added on top of the base score, capped at 100)
+    w_quality: float = 15.0
+    adx_min: float = 20.0
+    near_52w_high_pct: float = 5.0
+    bb_squeeze_pct: float = 20.0
+
     # scalping profile (short-term momentum on daily bars)
     scalp_min_price: float = 100.0
     scalp_min_avg_value_20d: float = 5_000_000_000.0

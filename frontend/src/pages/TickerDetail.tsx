@@ -19,6 +19,7 @@ const SWING_BREAKDOWN = [
   { key: "volume", label: "Volume", max: 20 },
   { key: "bonus", label: "Bonus volume ≥1,5x", max: 10 },
   { key: "momentum", label: "Momentum", max: 20 },
+  { key: "quality", label: "Kualitas tren (ADX/RS/dll)", max: 15 },
 ];
 
 const RANGE_BREAKDOWN = [
@@ -26,6 +27,7 @@ const RANGE_BREAKDOWN = [
   { key: "trend", label: "Tren", max: 25 },
   { key: "momentum", label: "Momentum", max: 30 },
   { key: "volume", label: "Volume", max: 25 },
+  { key: "quality", label: "Kualitas tren (ADX/RS/dll)", max: 15 },
 ];
 
 const PLAN_LABELS: Record<Category, string> = {
@@ -221,6 +223,15 @@ export default function TickerDetail() {
     rsiSeries.length >= 2 &&
     rsiSeries[rsiSeries.length - 1].value > rsiSeries[rsiSeries.length - 2].value;
 
+  const ind = data.indicators;
+  const stochLabel =
+    ind.stoch_k != null && ind.stoch_d != null
+      ? `${ind.stoch_k.toFixed(0)}/${ind.stoch_d.toFixed(0)}`
+      : "–";
+  const obvSlope = ind.obv_slope;
+  const obvLabel =
+    obvSlope == null ? "–" : obvSlope > 0 ? "naik" : obvSlope < 0 ? "turun" : "flat";
+
   const swingBlock: EvaluationBlock | null =
     data.evaluation && data.evaluation.score !== null && data.evaluation.signal !== null
       ? {
@@ -295,6 +306,37 @@ export default function TickerDetail() {
               hint="per hari"
             />
             <StatCard label="Volume terakhir" value={fmtCompact(last.volume)} hint="lembar" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+            <StatCard
+              label="ADX14"
+              value={ind.adx14?.toFixed(1) ?? "–"}
+              hint={ind.adx14 != null && ind.adx14 >= 20 ? "tren kuat" : "tren lemah/sideways"}
+            />
+            <StatCard
+              label="MACD hist"
+              value={fmtPrice(ind.macd_hist)}
+              hint={ind.macd_hist != null && ind.macd_hist > 0 ? "momentum bullish" : "momentum bearish"}
+            />
+            <StatCard label="Stoch %K/%D" value={stochLabel} hint="timing (14,3)" />
+            <StatCard label="Bollinger %b" value={ind.bb_pctb?.toFixed(2) ?? "–"} hint="posisi dalam band 20,2" />
+            <StatCard
+              label="Jarak 52w high"
+              value={ind.dist_52w_high != null ? fmtPct(ind.dist_52w_high) : "–"}
+              hint="kedekatan puncak tahunan"
+            />
+            <StatCard
+              label="RS vs IHSG"
+              value={ind.rs != null ? fmtPct(ind.rs) : "–"}
+              hint="63 bar"
+            />
+            <StatCard
+              label="ATR%"
+              value={ind.atr_pct != null ? `${ind.atr_pct.toFixed(1)}%` : "–"}
+              hint="volatilitas harian"
+            />
+            <StatCard label="OBV 10h" value={obvLabel} hint="akumulasi/distribusi" />
           </div>
         </div>
 

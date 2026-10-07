@@ -15,6 +15,85 @@ def _r(value: float | None, nd: int = 2) -> float | None:
     return None if value is None else round(value, nd)
 
 
+_QUALITY_WEIGHTS = {
+    "adx_strong": 0.30,
+    "rs_positive": 0.25,
+    "macd_bull": 0.15,
+    "stoch_bull": 0.10,
+    "near_52w_high": 0.10,
+    "bb_above_mid": 0.05,
+    "obv_rising": 0.05,
+}
+
+
+def _num_at(row, key: str) -> float | None:
+    if key not in row.index:
+        return None
+    value = row.get(key)
+    if value is None or pd.isna(value):
+        return None
+    return float(value)
+
+
+def _bandwidth_rank(df: pd.DataFrame, cfg: Settings) -> float | None:
+    if "bb_bandwidth" not in df.columns:
+        return None
+    series = df["bb_bandwidth"].dropna()
+    if len(series) < 30:
+        return None
+    last = float(series.iloc[-1])
+    window = series.iloc[-120:]
+    return float((window <= last).mean() * 100.0)
+
+
+def _quality(df: pd.DataFrame, cfg: Settings) -> tuple[dict[str, bool], float]:
+    """Trend/momentum quality checks from the extended indicator set.
+
+    Missing indicators are omitted so frames without the extended columns
+    (e.g. older scans or synthetic test frames) keep the base behaviour.
+    """
+    last = df.iloc[-1]
+    prev = df.iloc[-2] if len(df) > 1 else last
+    checks: dict[str, bool] = {}
+
+    adx = _num_at(last, "adx14")
+    if adx is not None:
+        checks["adx_strong"] = adx >= cfg.adx_min
+    rs = _num_at(last, "rs")
+    if rs is not None:
+        checks["rs_positive"] = rs >= 0
+    macd_hist = _num_at(last, "macd_hist")
+    if macd_hist is not None:
+        checks["macd_bull"] = macd_hist > 0
+    stoch_k = _num_at(last, "stoch_k")
+    stoch_d = _num_at(last, "stoch_d")
+    stoch_k_prev = _num_at(prev, "stoch_k")
+    if stoch_k is not None and stoch_d is not None:
+        checks["stoch_bull"] = stoch_k >= stoch_d and (
+            stoch_k_prev is None or stoch_k >= stoch_k_prev
+        )
+    pctb = _num_at(last, "bb_pctb")
+    if pctb is not None:
+        checks["bb_above_mid"] = pctb >= 0.5
+    rank = _bandwidth_rank(df, cfg)
+    if rank is not None:
+        checks["bb_squeeze"] = rank <= cfg.bb_squeeze_pct
+    dist52 = _num_at(last, "dist_52w_high")
+    if dist52 is not None:
+        checks["near_52w_high"] = dist52 >= -cfg.near_52w_high_pct
+    obv_slope = _num_at(last, "obv_slope")
+    if obv_slope is not None:
+        checks["obv_rising"] = obv_slope > 0
+
+    score = sum(w for key, w in _QUALITY_WEIGHTS.items() if checks.get(key)) * cfg.w_quality
+    return checks, score
+
+
+def _quality_gate(checks: dict[str, bool]) -> bool:
+    """POTENTIAL signals need a non-choppy trend and index outperformance when known."""
+    return checks.get("adx_strong", True) and checks.get("rs_positive", True)
+
+
 def evaluate(df: pd.DataFrame, cfg: Settings | None = None) -> dict | None:
     """Evaluate the last bar of an OHLCV+indicator frame. Returns None if insufficient data."""
     cfg = cfg or settings
@@ -68,6 +147,7 @@ def evaluate(df: pd.DataFrame, cfg: Settings | None = None) -> dict | None:
         "near_ema50": bool(near_ema50),
     }
 
+    quality_checks, quality_score = _quality(df, cfg)
     breakdown = {
         "trend": (
             (cfg.w_trend / 2 if trend["close_above_ema50"] else 0)
@@ -83,6 +163,7 @@ def evaluate(df: pd.DataFrame, cfg: Settings | None = None) -> dict | None:
             (cfg.w_momentum / 2 if momentum["close_above_prev_high"] else 0)
             + (cfg.w_momentum / 2 if momentum["near_ema50"] else 0)
         ),
+        "quality": quality_score,
     }
     score = min(100.0, sum(breakdown.values()))
 
@@ -93,6 +174,7 @@ def evaluate(df: pd.DataFrame, cfg: Settings | None = None) -> dict | None:
         and pullback["rsi_pullback"]
         and pullback["rsi_rising"]
         and volume["volume_above_avg"]
+        and _quality_gate(quality_checks)
     )
 
     if signal_ok and score >= cfg.buy_score:
@@ -132,8 +214,22 @@ def evaluate(df: pd.DataFrame, cfg: Settings | None = None) -> dict | None:
         "atr14": _r(atr14),
         "value_avg20": _r(value_avg, 0),
         "volume": int(vol),
+        "adx14": _r(_num_at(last, "adx14")),
+        "di_plus14": _r(_num_at(last, "di_plus14")),
+        "di_minus14": _r(_num_at(last, "di_minus14")),
+        "macd": _r(_num_at(last, "macd")),
+        "macd_signal": _r(_num_at(last, "macd_signal")),
+        "macd_hist": _r(_num_at(last, "macd_hist")),
+        "bb_bandwidth": _r(_num_at(last, "bb_bandwidth")),
+        "bb_pctb": _r(_num_at(last, "bb_pctb")),
+        "stoch_k": _r(_num_at(last, "stoch_k")),
+        "stoch_d": _r(_num_at(last, "stoch_d")),
+        "dist_52w_high": _r(_num_at(last, "dist_52w_high")),
+        "atr_pct": _r(_num_at(last, "atr_pct")),
+        "rs": _r(_num_at(last, "rs")),
+        "obv_slope": _r(_num_at(last, "obv_slope"), 0),
         "liquid": liquid,
-        "checks": {**liquidity, **trend, **pullback, **volume, **momentum},
+        "checks": {**liquidity, **trend, **pullback, **volume, **momentum, **quality_checks},
         "breakdown": breakdown,
         "score": _r(score, 1),
         "signal": signal,
@@ -196,6 +292,7 @@ def evaluate_scalp(df: pd.DataFrame, cfg: Settings | None = None) -> dict | None
     }
     rsi_ok = cfg.scalp_rsi_min <= rsi_now <= cfg.scalp_rsi_max
 
+    quality_checks, quality_score = _quality(df, cfg)
     breakdown = {
         "liquidity": (cfg.scalp_w_liquidity / 2 if liquidity["value_avg"] else 0)
         + (cfg.scalp_w_liquidity / 2 if liquidity["vol_avg"] else 0),
@@ -205,6 +302,7 @@ def evaluate_scalp(df: pd.DataFrame, cfg: Settings | None = None) -> dict | None
         + (cfg.scalp_w_momentum / 2 if momentum["strong_close"] else 0),
         "volume": (cfg.scalp_w_volume * 0.4 if volume["volume_above_avg"] else 0)
         + (cfg.scalp_w_volume * 0.6 if volume["volume_strong"] else 0),
+        "quality": quality_score,
     }
     score = min(100.0, sum(breakdown.values()))
 
@@ -214,6 +312,7 @@ def evaluate_scalp(df: pd.DataFrame, cfg: Settings | None = None) -> dict | None
         and all(momentum.values())
         and volume["volume_strong"]
         and rsi_ok
+        and _quality_gate(quality_checks)
     )
     if ready and score >= cfg.scalp_ready_score:
         signal = "POTENTIAL SCALP"
@@ -240,7 +339,7 @@ def evaluate_scalp(df: pd.DataFrame, cfg: Settings | None = None) -> dict | None
         "score": _r(score, 1),
         "signal": signal,
         "liquid": liquid,
-        "checks": {**liquidity, **trend, **momentum, **volume, "rsi_ok": rsi_ok},
+        "checks": {**liquidity, **trend, **momentum, **volume, "rsi_ok": rsi_ok, **quality_checks},
         "breakdown": breakdown,
         "plan": plan,
         "close": _r(close),
@@ -319,6 +418,7 @@ def evaluate_daytrade(df: pd.DataFrame, cfg: Settings | None = None) -> dict | N
     }
     rsi_ok = cfg.day_rsi_min <= rsi_now <= cfg.day_rsi_max
 
+    quality_checks, quality_score = _quality(df, cfg)
     breakdown = {
         "liquidity": (cfg.day_w_liquidity / 2 if liquidity["value_avg"] else 0)
         + (cfg.day_w_liquidity / 2 if liquidity["vol_avg"] else 0),
@@ -328,10 +428,18 @@ def evaluate_daytrade(df: pd.DataFrame, cfg: Settings | None = None) -> dict | N
         + (cfg.day_w_momentum / 2 if momentum["strong_close"] else 0),
         "volume": (cfg.day_w_volume * 0.4 if volume["volume_above_avg"] else 0)
         + (cfg.day_w_volume * 0.6 if volume["volume_strong"] else 0),
+        "quality": quality_score,
     }
     score = min(100.0, sum(breakdown.values()))
 
-    ready = liquid and all(trend.values()) and all(momentum.values()) and volume["volume_strong"] and rsi_ok
+    ready = (
+        liquid
+        and all(trend.values())
+        and all(momentum.values())
+        and volume["volume_strong"]
+        and rsi_ok
+        and _quality_gate(quality_checks)
+    )
     if ready and score >= cfg.day_ready_score:
         signal = "POTENTIAL DAY"
     elif score >= cfg.day_candidate_score:
@@ -357,7 +465,7 @@ def evaluate_daytrade(df: pd.DataFrame, cfg: Settings | None = None) -> dict | N
         "score": _r(score, 1),
         "signal": signal,
         "liquid": liquid,
-        "checks": {**liquidity, **trend, **momentum, **volume, "rsi_ok": rsi_ok},
+        "checks": {**liquidity, **trend, **momentum, **volume, "rsi_ok": rsi_ok, **quality_checks},
         "breakdown": breakdown,
         "plan": plan,
         "close": _r(close),
@@ -416,6 +524,7 @@ def evaluate_overnight(df: pd.DataFrame, cfg: Settings | None = None) -> dict | 
     }
     rsi_ok = cfg.overnight_rsi_min <= rsi_now <= cfg.overnight_rsi_max
 
+    quality_checks, quality_score = _quality(df, cfg)
     breakdown = {
         "liquidity": (cfg.overnight_w_liquidity / 2 if liquidity["value_avg"] else 0)
         + (cfg.overnight_w_liquidity / 2 if liquidity["vol_avg"] else 0),
@@ -425,6 +534,7 @@ def evaluate_overnight(df: pd.DataFrame, cfg: Settings | None = None) -> dict | 
         + (cfg.overnight_w_momentum / 2 if momentum["strong_close"] else 0),
         "volume": (cfg.overnight_w_volume * 0.4 if volume["volume_above_avg"] else 0)
         + (cfg.overnight_w_volume * 0.6 if volume["volume_strong"] else 0),
+        "quality": quality_score,
     }
     score = min(100.0, sum(breakdown.values()))
 
@@ -434,6 +544,7 @@ def evaluate_overnight(df: pd.DataFrame, cfg: Settings | None = None) -> dict | 
         and momentum["strong_close"]
         and volume["volume_strong"]
         and rsi_ok
+        and _quality_gate(quality_checks)
     )
     if ready and score >= cfg.overnight_ready_score:
         signal = "POTENTIAL OVERNIGHT"
@@ -460,7 +571,7 @@ def evaluate_overnight(df: pd.DataFrame, cfg: Settings | None = None) -> dict | 
         "score": _r(score, 1),
         "signal": signal,
         "liquid": liquid,
-        "checks": {**liquidity, **trend, **momentum, **volume, "rsi_ok": rsi_ok},
+        "checks": {**liquidity, **trend, **momentum, **volume, "rsi_ok": rsi_ok, **quality_checks},
         "breakdown": breakdown,
         "plan": plan,
         "close": _r(close),

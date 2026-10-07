@@ -61,6 +61,20 @@ export interface ScanResult {
   overnight_tp2: number | null;
   overnight_risk_reward: number | null;
   overnight_breakdown: Record<string, number> | null;
+  adx14: number | null;
+  di_plus14: number | null;
+  di_minus14: number | null;
+  macd: number | null;
+  macd_signal: number | null;
+  macd_hist: number | null;
+  bb_bandwidth: number | null;
+  bb_pctb: number | null;
+  stoch_k: number | null;
+  stoch_d: number | null;
+  dist_52w_high: number | null;
+  atr_pct: number | null;
+  rs: number | null;
+  obv_slope: number | null;
 }
 
 export interface ScanLatest {

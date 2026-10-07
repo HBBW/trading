@@ -227,3 +227,53 @@ def test_overnight_weak_close_is_not_ready():
     assert ev is not None
     assert ev["signal"] == "WATCHLIST"
     assert ev["checks"]["strong_close"] is False
+
+
+def _perfect_swing_frame() -> pd.DataFrame:
+    df = make_frame()
+    df.loc[df.index[-3]:, "rsi14"] = [50.0, 40.0, 42.0]
+    df.loc[df.index[-1], "volume"] = 200_000.0
+    df.loc[df.index[-2], "high"] = 98.0
+    return df
+
+
+def test_quality_gate_blocks_potential_when_adx_weak():
+    df = _perfect_swing_frame()
+    df["adx14"] = 10.0
+
+    ev = evaluate(df, settings)
+
+    assert ev is not None
+    assert ev["checks"]["adx_strong"] is False
+    assert ev["signal"] == "WATCHLIST"
+
+
+def test_quality_gate_blocks_potential_when_underperforming_index():
+    df = _perfect_swing_frame()
+    df["rs"] = -5.0
+
+    ev = evaluate(df, settings)
+
+    assert ev is not None
+    assert ev["checks"]["rs_positive"] is False
+    assert ev["signal"] == "WATCHLIST"
+
+
+def test_quality_checks_and_score_when_strong():
+    df = _perfect_swing_frame()
+    df["adx14"] = 30.0
+    df["rs"] = 5.0
+    df["macd_hist"] = 1.0
+    df["bb_pctb"] = 0.7
+    df["obv_slope"] = 100.0
+    df["stoch_k"] = 60.0
+    df["stoch_d"] = 50.0
+    df["dist_52w_high"] = -1.0
+
+    ev = evaluate(df, settings)
+
+    assert ev is not None
+    assert ev["signal"] == "POTENTIAL BUY"
+    assert ev["checks"]["adx_strong"] is True
+    assert ev["checks"]["rs_positive"] is True
+    assert ev["breakdown"]["quality"] > 0

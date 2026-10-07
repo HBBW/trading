@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { fmtPrice, volRatio } from "../lib/format";
+import { fmtPct, fmtPrice, volRatio } from "../lib/format";
 import { rowFields, type Category, type SortKey, type SortState } from "../lib/rows";
 import type { ScanResult } from "../lib/types";
 import { ScoreBadge } from "./ScoreBadge";
@@ -56,7 +56,7 @@ export function ResultsTable({
 }) {
   return (
     <div className="overflow-x-auto border-y border-line-strong">
-      <table className="w-full min-w-[1020px] border-collapse text-sm">
+      <table className="w-full min-w-[1180px] border-collapse text-sm">
         <caption className="sr-only">
           Hasil scan {category === "scalp" ? "scalping" : "swing"}, dengan level entry, cut loss,
           dan target
@@ -74,6 +74,8 @@ export function ResultsTable({
             </th>
             <Th label="Close" k="close" sort={sort} onSort={onSort} align="right" />
             <Th label="RSI" k="rsi" sort={sort} onSort={onSort} align="right" />
+            <Th label="ADX" k="adx" sort={sort} onSort={onSort} align="right" />
+            <Th label="RS vs IHSG" k="rs" sort={sort} onSort={onSort} align="right" />
             <Th label="Vol" k="vol" sort={sort} onSort={onSort} align="right" />
             <Th label="Entry" k="entry" sort={sort} onSort={onSort} align="right" />
             <Th label="CL" k="cl" sort={sort} onSort={onSort} align="right" />
@@ -114,6 +116,16 @@ export function ResultsTable({
                 <td className="py-2.5 pr-3 text-right font-mono text-sm">{fmtPrice(r.close)}</td>
                 <td className="py-2.5 pr-3 text-right font-mono text-sm">
                   {r.rsi === null ? "–" : r.rsi.toFixed(1)}
+                </td>
+                <td className="py-2.5 pr-3 text-right font-mono text-sm">
+                  {r.adx14 === null ? "–" : r.adx14.toFixed(1)}
+                </td>
+                <td
+                  className={`py-2.5 pr-3 text-right font-mono text-sm ${
+                    r.rs === null ? "text-ink" : r.rs >= 0 ? "text-pos" : "text-neg"
+                  }`}
+                >
+                  {r.rs === null ? "–" : fmtPct(r.rs)}
                 </td>
                 <td
                   className={`py-2.5 pr-3 text-right font-mono text-sm ${

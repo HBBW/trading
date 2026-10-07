@@ -1,4 +1,11 @@
-import { CandlestickSeries, ColorType, LineSeries, LineStyle, createChart } from "lightweight-charts";
+import {
+  CandlestickSeries,
+  ColorType,
+  HistogramSeries,
+  LineSeries,
+  LineStyle,
+  createChart,
+} from "lightweight-charts";
 import { useEffect, useRef } from "react";
 import { useTheme } from "../lib/theme-context";
 import type { Bar, SeriesPoint } from "../lib/types";
@@ -105,6 +112,24 @@ export function PriceChart({
       line.setData(points.map((p) => ({ time: p.date, value: p.value })));
     }
 
+    for (const def of [
+      { key: "bb_upper", color: colors.sma200 },
+      { key: "bb_lower", color: colors.sma200 },
+    ]) {
+      const points = series[def.key] ?? [];
+      if (points.length === 0) continue;
+      const line = chart.addSeries(LineSeries, {
+        color: def.color,
+        lineWidth: 1,
+        lineStyle: LineStyle.Dashed,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
+      line.setData(points.map((p) => ({ time: p.date, value: p.value })));
+    }
+
+    let pane = 1;
     const rsiPoints = series.rsi14 ?? [];
     if (rsiPoints.length > 0) {
       const rsi = chart.addSeries(
@@ -115,7 +140,7 @@ export function PriceChart({
           priceLineVisible: false,
           lastValueVisible: true,
         },
-        1,
+        pane,
       );
       rsi.setData(rsiPoints.map((p) => ({ time: p.date, value: p.value })));
       for (const level of [30, 70]) {
@@ -128,7 +153,53 @@ export function PriceChart({
           title: String(level),
         });
       }
-      chart.panes()[1]?.setHeight(110);
+      chart.panes()[pane]?.setHeight(110);
+      pane += 1;
+    }
+
+    const macdLine = series.macd ?? [];
+    if (macdLine.length > 0) {
+      const hist = chart.addSeries(
+        HistogramSeries,
+        { priceLineVisible: false, lastValueVisible: false },
+        pane,
+      );
+      hist.setData(
+        (series.macd_hist ?? []).map((p) => ({
+          time: p.date,
+          value: p.value,
+          color: p.value >= 0 ? colors.up : colors.down,
+        })),
+      );
+      const macdSeries = chart.addSeries(
+        LineSeries,
+        {
+          color: colors.ema20,
+          lineWidth: 1,
+          priceLineVisible: false,
+          lastValueVisible: false,
+          crosshairMarkerVisible: false,
+        },
+        pane,
+      );
+      macdSeries.setData(macdLine.map((p) => ({ time: p.date, value: p.value })));
+      const signalPoints = series.macd_signal ?? [];
+      if (signalPoints.length > 0) {
+        const signalLine = chart.addSeries(
+          LineSeries,
+          {
+            color: colors.ema50,
+            lineWidth: 1,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+          },
+          pane,
+        );
+        signalLine.setData(signalPoints.map((p) => ({ time: p.date, value: p.value })));
+      }
+      chart.panes()[pane]?.setHeight(90);
+      pane += 1;
     }
 
     chart.timeScale().fitContent();
@@ -139,6 +210,8 @@ export function PriceChart({
     { key: "ema20", label: "EMA20", color: colors.ema20 },
     { key: "ema50", label: "EMA50", color: colors.ema50 },
     { key: "sma200", label: "SMA200", color: colors.sma200 },
+    { key: "bb_upper", label: "Bollinger 20,2", color: colors.sma200 },
+    { key: "macd", label: "MACD (12,26,9)", color: colors.ema20 },
   ].filter((item) => (series[item.key] ?? []).length > 0);
 
   return (
@@ -168,7 +241,7 @@ export function PriceChart({
       <div
         ref={container}
         role="img"
-        aria-label={`Grafik harga ${symbol}, ${bars.length} bar, dengan EMA20, EMA50, SMA200, dan RSI14`}
+        aria-label={`Grafik harga ${symbol}, ${bars.length} bar, dengan EMA20, EMA50, SMA200, Bollinger, RSI14, dan MACD`}
         className="h-[420px] w-full"
       />
     </div>

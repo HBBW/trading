@@ -66,6 +66,20 @@ class ScanResult(BaseModel):
     overnight_tp2: float | None = None
     overnight_risk_reward: float | None = None
     overnight_breakdown: dict | None = None
+    adx14: float | None = None
+    di_plus14: float | None = None
+    di_minus14: float | None = None
+    macd: float | None = None
+    macd_signal: float | None = None
+    macd_hist: float | None = None
+    bb_bandwidth: float | None = None
+    bb_pctb: float | None = None
+    stoch_k: float | None = None
+    stoch_d: float | None = None
+    dist_52w_high: float | None = None
+    atr_pct: float | None = None
+    rs: float | None = None
+    obv_slope: float | None = None
 
 
 class ScanLatestResponse(BaseModel):
