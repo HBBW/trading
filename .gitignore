@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Data / DB
+backend/data/*.duckdb
+backend/data/*.duckdb.wal
+backend/data/*.duckdb.tmp
+!backend/data/idx_universe.csv
+
+# Node
+node_modules/
+frontend/dist/
+dist/
+
+# Env / OS
+.env
+.venv.bak/
+.DS_Store
+Thumbs.db
